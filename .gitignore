@@ -1,10 +1,9 @@
-# --- Python ---
-__pycache__/
+# Python
 *.py[cod]
 *$py.class
+__pycache__/
 *.so
 .Python
-env/
 build/
 develop-eggs/
 dist/
@@ -21,34 +20,39 @@ wheels/
 .installed.cfg
 *.egg
 
-# --- Virtual Environments ---
+# Virtual Environment
+venv/
+env/
+ENV/
 .venv
-venv
-ENV
-env.bak
-venv.bak
 
-# --- Django ---
+# Django
 *.log
-local_settings.py
 db.sqlite3
 db.sqlite3-journal
-media/
-staticfiles/
+/staticfiles/
+/media/
+logs/
 
-# --- Environment Variables ---
+# Environment variables
 .env
-.venv
 .env.local
 .env.*.local
 
-# --- JetBrains (PyCharm) ---
-.idea/
-
-# --- VS Code ---
+# IDE
 .vscode/
-*.code-workspace
-
-# --- OS Specific ---
+.idea/
+*.swp
+*.swo
+*~
 .DS_Store
-Thumbs.db
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+#migration files
+*/migrations/*.py
+!*/migrations/__init__.py

@@ -6,15 +6,13 @@ User = get_user_model()
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    """Registration with password hashing via set_password."""
     password = serializers.CharField(write_only=True, min_length=8)
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'password']
+        fields = ['username', 'email', 'first_name', 'last_name', 'password']
     
     def create(self, validated_data):
-        # would use set_password to ensure proper hashing
         user = User(
             username=validated_data['username'],
             email=validated_data['email'],
@@ -27,42 +25,30 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 
 class QuestionSerializer(serializers.ModelSerializer):
-    """
-    Public question view - excludes expected_answer for security.
-    Students must never see answers before submission.
-    """
     class Meta:
         model = Question
         fields = ['id', 'question_text', 'question_type', 'points', 'order']
 
 
 class QuestionDetailSerializer(serializers.ModelSerializer):
-    """
-    Admin/grading view - includes expected_answer.
-    Used internally by grading service.
-    """
     class Meta:
         model = Question
         fields = '__all__'
 
 
 class ExamListSerializer(serializers.ModelSerializer):
-    """Lightweight exam listing for browse view."""
-    question_count = serializers.SerializerMethodField()
+    """
+    Lightweight exam listing for browse view.
+    Would use annotation from the view to avoid N+1 queries on question_count.
+    """
+    question_count = serializers.IntegerField(read_only=True)
     
     class Meta:
         model = Exam
         fields = ['id', 'title', 'course', 'duration_minutes', 'question_count', 'created_at']
-    
-    def get_question_count(self, obj):
-        return obj.questions.count()
 
 
 class ExamDetailSerializer(serializers.ModelSerializer):
-    """
-    Full exam with questions for take-exam view.
-    need to use nested serializer for efficient single-query fetch.
-    """
     questions = QuestionSerializer(many=True, read_only=True)
     
     class Meta:
@@ -73,36 +59,30 @@ class ExamDetailSerializer(serializers.ModelSerializer):
 
 class AnswerSubmissionSerializer(serializers.Serializer):
     """
-    Validates incoming answer data during submission.
-    Not tied to model - pure validation logic.
+    Validate incoming answer data during submission.
     """
-    question_id = serializers.IntegerField()
+    question_id = serializers.UUIDField()
     student_answer = serializers.CharField(allow_blank=False)
 
 
 class SubmissionCreateSerializer(serializers.Serializer):
     """
-    Handles exam submission payload.
-    Separated from model serializer for custom validation logic.
+    Handle exam submission payload seperately.
     """
-    exam_id = serializers.IntegerField()
+    exam_id = serializers.UUIDField()
     answers = AnswerSubmissionSerializer(many=True)
     
     def validate_answers(self, value):
-        """Ensure no duplicate question_ids in submission."""
+        """I'm ensuring no duplicate question_ids in submission."""
         question_ids = [a['question_id'] for a in value]
         if len(question_ids) != len(set(question_ids)):
             raise serializers.ValidationError(
-                "Block double answers for the same question."
+                "Duplicate answers for the same question are not allowed."
             )
         return value
 
 
 class AnswerDetailSerializer(serializers.ModelSerializer):
-    """
-    Answer view for graded results.
-    Includes question context for student review.
-    """
     question_text = serializers.CharField(source='question.question_text', read_only=True)
     question_type = serializers.CharField(source='question.question_type', read_only=True)
     points_possible = serializers.IntegerField(source='question.points', read_only=True)
@@ -125,10 +105,6 @@ class SubmissionListSerializer(serializers.ModelSerializer):
 
 
 class SubmissionDetailSerializer(serializers.ModelSerializer):
-    """
-    Full submission with answers for result view.
-    Optimized with select_related/prefetch_related in view.
-    """
     exam_title = serializers.CharField(source='exam.title', read_only=True)
     course = serializers.CharField(source='exam.course', read_only=True)
     answers = AnswerDetailSerializer(many=True, read_only=True)

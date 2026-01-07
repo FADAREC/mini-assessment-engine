@@ -1,24 +1,15 @@
+import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import MinValueValidator
 from django.utils import timezone
 
-# Create your models here.
 
 class User(AbstractUser):
+    # AbstractUser already has first_name and last_name
+    # We'll use those instead of full_name
     created_at = models.DateTimeField(auto_now_add=True)
     
-    groups = models.ManyToManyField(
-        'auth.Group',
-        related_name='assessment_user_groups',
-        blank=True
-    )
-    user_permissions = models.ManyToManyField(
-        'auth.Permission',
-        related_name='assessment_user_permissions',
-        blank=True
-    )
-
     class Meta:
         db_table = 'users'
         indexes = [
@@ -27,6 +18,7 @@ class User(AbstractUser):
 
 
 class Exam(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=255)
     course = models.CharField(max_length=100)
     duration_minutes = models.IntegerField(validators=[MinValueValidator(1)])
@@ -44,6 +36,7 @@ class Exam(models.Model):
 
 
 class Question(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     QUESTION_TYPES = [
         ('multiple_choice', 'Multiple Choice'),
         ('essay', 'Essay'),
@@ -66,6 +59,7 @@ class Question(models.Model):
     class Meta:
         db_table = 'questions'
         ordering = ['exam', 'order']
+        # I added an index here to optimize queries when fetching exam questions
         indexes = [
             models.Index(fields=['exam', 'order']),
         ]
@@ -76,16 +70,18 @@ class Question(models.Model):
 
 class Submission(models.Model):
     """
-    Student attempt at an exam.
-    Status tracking enables async grading without blocking submission.
+    Student's attempt at an exam.
     
-    Unique constraint enforces one-submission-per-exam-per-student rule.
-    Need to putin place a business logic constraint to prevent accidental/imntetntional resubmission.
+    I'm using status tracking to enable async grading without blocking submission.
+    The unique constraint enforces one-submission-per-exam-per-student, which is 
+    a business rule I implemented to prevent accidental resubmission.
     """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     STATUS_CHOICES = [
         ('submitted', 'Submitted'),
         ('grading', 'Grading'),
         ('graded', 'Graded'),
+        ('failed', 'Grading Failed'),
     ]
     
     student = models.ForeignKey(
@@ -119,6 +115,7 @@ class Submission(models.Model):
                 name='unique_student_exam_submission'
             )
         ]
+        # Critical indexes for result retrieval queries
         indexes = [
             models.Index(fields=['student', '-submitted_at']),
             models.Index(fields=['exam']),
@@ -132,13 +129,14 @@ class Submission(models.Model):
 class Answer(models.Model):
     """
     Individual question response within a submission.
-    Grading fields populated by grading service after submission.
+    Grading fields are populated by the grading service after submission.
     
-    Separated from Submission to enable:
+    I separated this from Submission to enable:
     - Granular per-question grading
     - Partial credit tracking
     - Efficient JOIN queries during result retrieval
     """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     submission = models.ForeignKey(
         Submission, 
         on_delete=models.CASCADE, 
@@ -157,6 +155,7 @@ class Answer(models.Model):
     
     class Meta:
         db_table = 'answers'
+        # Index for efficient answer retrieval during grading
         indexes = [
             models.Index(fields=['submission']),
             models.Index(fields=['question']),
