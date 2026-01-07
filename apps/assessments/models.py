@@ -5,9 +5,7 @@ from django.utils import timezone
 
 # Create your models here.
 
-
 class User(AbstractUser):
-    full_name = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     
     groups = models.ManyToManyField(
@@ -68,7 +66,6 @@ class Question(models.Model):
     class Meta:
         db_table = 'questions'
         ordering = ['exam', 'order']
-        # Index for query optimization when fetching exam questions
         indexes = [
             models.Index(fields=['exam', 'order']),
         ]
@@ -79,11 +76,11 @@ class Question(models.Model):
 
 class Submission(models.Model):
     """
-    Student's attempt at an exam.
+    Student attempt at an exam.
     Status tracking enables async grading without blocking submission.
     
     Unique constraint enforces one-submission-per-exam-per-student rule.
-    This is a business logic constraint to prevent accidental resubmission.
+    Need to putin place a business logic constraint to prevent accidental/imntetntional resubmission.
     """
     STATUS_CHOICES = [
         ('submitted', 'Submitted'),
@@ -122,7 +119,6 @@ class Submission(models.Model):
                 name='unique_student_exam_submission'
             )
         ]
-        # Critical indexes for result retrieval queries
         indexes = [
             models.Index(fields=['student', '-submitted_at']),
             models.Index(fields=['exam']),
@@ -161,7 +157,6 @@ class Answer(models.Model):
     
     class Meta:
         db_table = 'answers'
-        # Index for efficient answer retrieval during grading
         indexes = [
             models.Index(fields=['submission']),
             models.Index(fields=['question']),
